@@ -1,8 +1,11 @@
+import { useContext } from 'react';
 import './App.css';
 import { PUBLIC_URL, REACT_APP_CROWNLABS_APISERVER_URL } from './env';
 import { BrowserRouter, Link, Route, Switch } from 'react-router-dom';
+import AuthContextProvider, { AuthContext } from './contexts/AuthContext';
 
 function App() {
+  const { isLoggedIn } = useContext(AuthContext);
   return (
     <div
       style={{
@@ -20,25 +23,28 @@ function App() {
       }}
     >
       <BrowserRouter basename={PUBLIC_URL}>
-        <Switch>
-          <Route path="/active">
-            <div>Active</div>
-            <Link to="/">Go Home</Link>
-          </Route>
-          <Route path="/account">
-            <div>Account</div>
-            <Link to="/">Go Home</Link>
-          </Route>
-          <Route path="/" exact>
-            <div className="p-10 m-10">
-              CrownLabs will get a new look!
-              <br /> Apiserver at {REACT_APP_CROWNLABS_APISERVER_URL}{' '}
-            </div>
+        <AuthContextProvider>
+          LOGGED: {isLoggedIn ? 'YES' : 'FALSE'}
+          <Switch>
+            <Route path="/active">
+              <div>Active</div>
+              <Link to="/">Go Home</Link>
+            </Route>
+            <Route path="/account">
+              <div>Account</div>
+              <Link to="/">Go Home</Link>
+            </Route>
+            <Route path="/" exact>
+              <div className="p-10 m-10">
+                CrownLabs will get a new look!
+                <br /> Apiserver at {REACT_APP_CROWNLABS_APISERVER_URL}{' '}
+              </div>
 
-            <Link to="/active">Go to active</Link>
-            <Link to="/account">Go to account</Link>
-          </Route>
-        </Switch>
+              <Link to="/active">Go to active</Link>
+              <Link to="/account">Go to account</Link>
+            </Route>
+          </Switch>
+        </AuthContextProvider>
       </BrowserRouter>
     </div>
   );
