@@ -10,7 +10,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Install required libraries to render PyCharm
 RUN apt-get update && \
   apt-get install -y --no-install-recommends libxrender1 libxtst6 libxi6 libfontconfig1 && \
-  apt-get install -y python3 python3-venv
+  apt-get install -y python3 python3-venv python3-setuptools
 
 # Install wget, download and unpack PyCharm, and clean up
 RUN apt-get install -y wget && \
@@ -45,4 +45,4 @@ USER $USER
 
 # CMD [ "executable", "parameter", ... ] form throws an error if $PROJECT_DIR is not set
 # Therefore, bash-like form is used
-CMD /opt/pycharm/bin/pycharm.sh $PROJECT_DIR
+ENTRYPOINT ["/opt/pycharm/bin/pycharm.sh"]
