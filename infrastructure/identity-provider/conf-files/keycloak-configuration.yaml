@@ -145,24 +145,24 @@ affinity: |
       - labelSelector:
           matchLabels:
             {{- include "keycloak.selectorLabels" . | nindent 10 }}
-          matchExpressions:
-            - key: app.kubernetes.io/component
-              operator: NotIn
-              values:
-                - test
+  #        matchExpressions:
+  #          - key: app.kubernetes.io/component
+  #            operator: NotIn
+  #            values:
+  #              - test
         topologyKey: kubernetes.io/hostname
-    preferredDuringSchedulingIgnoredDuringExecution:
-      - weight: 100
-        podAffinityTerm:
-          labelSelector:
-            matchLabels:
-              {{- include "keycloak.selectorLabels" . | nindent 12 }}
-            matchExpressions:
-              - key: app.kubernetes.io/component
-                operator: NotIn
-                values:
-                  - test
-          topologyKey: failure-domain.beta.kubernetes.io/zone
+#    preferredDuringSchedulingIgnoredDuringExecution:
+#      - weight: 100
+#        podAffinityTerm:
+#          labelSelector:
+#            matchLabels:
+#              {{- include "keycloak.selectorLabels" . | nindent 12 }}
+#            matchExpressions:
+#              - key: app.kubernetes.io/component
+#                operator: NotIn
+#                values:
+#                  - test
+#          topologyKey: failure-domain.beta.kubernetes.io/zone
 
 # Node labels for Pod assignment
 nodeSelector: {}
@@ -181,7 +181,7 @@ livenessProbe: |
   httpGet:
     path: /auth/
     port: http
-  initialDelaySeconds: 300
+  initialDelaySeconds: 0
   timeoutSeconds: 5
 
 # Readiness probe configuration
@@ -192,14 +192,24 @@ readinessProbe: |
   initialDelaySeconds: 30
   timeoutSeconds: 1
 
+# Startup probe configuration
+startupProbe: |
+  httpGet:
+    path: /auth/
+    port: http
+  initialDelaySeconds: 30
+  timeoutSeconds: 1
+  failureThreshold: 60
+  periodSeconds: 5
+
 # Pod resource requests and limits
-resources: {}
-  # requests:
-  #   cpu: "500m"
-  #   memory: "1024Mi"
-  # limits:
-  #   cpu: "500m"
-  #   memory: "1024Mi"
+resources:
+  requests:
+    cpu: "500m"
+    memory: "1024Mi"
+  limits:
+    cpu: "2000m"
+    memory: "2048Mi"
 
 # Startup scripts to run before Keycloak starts up
 startupScripts:
@@ -212,16 +222,11 @@ startupScripts:
   # echo 'Hello from my custom startup script!'
 
 # Add additional volumes, e. g. for custom themes
-## Volumes added to serve the tls certificate and key to keycloak - Aldo
 ## The subPath entry has to match the entry in the config map - Aldo
 extraVolumes: |
   - name: db-creds
     secret:
       secretName: keycloak.keycloak-db-cluster.credentials
-  - name: keycloak-certificate
-    secret:
-      defaultMode: 420
-      secretName: keycloak-certificate-secret
   - configMap:
       defaultMode: 420
       name: keycloak-theme-email
@@ -243,9 +248,6 @@ extraVolumes: |
 extraVolumeMounts: |
   - name: db-creds
     mountPath: /secrets/db-creds
-    readOnly: true
-  - mountPath: /etc/x509/https
-    name: keycloak-certificate
     readOnly: true
   - mountPath: /opt/jboss/keycloak/themes/crownlabs/email
     name: keycloak-theme-email
@@ -312,6 +314,10 @@ service:
   # to connect to the LoadBalancer, e. g. will result in Security Groups
   # (or equivalent) with inbound source ranges allowed to connect
   loadBalancerSourceRanges: []
+  # When using Service type LoadBalancer, you can preserve the source IP seen in the container
+  # by changing the default (Cluster) to be Local.
+  # See https://kubernetes.io/docs/tasks/access-application-cluster/create-external-load-balancer/#preserving-the-client-source-ip
+  externalTrafficPolicy: "Cluster"
   # Session affinity
   # See https://kubernetes.io/docs/concepts/services-networking/service/#proxy-mode-userspace
   sessionAffinity: ""
@@ -322,10 +328,10 @@ ingress:
   # If `true`, an Ingress is created
   enabled: true
   # The Service port targeted by the Ingress
-  servicePort: https
+  servicePort: http
   # Ingress annotations
   annotations:
-    nginx.ingress.kubernetes.io/ssl-passthrough: "true"
+    cert-manager.io/cluster-issuer: letsencrypt-production
   # kubernetes.io/ingress.class: nginx
   # kubernetes.io/tls-acme: "true"
   # ingress.kubernetes.io/affinity: cookie
@@ -347,7 +353,22 @@ ingress:
   tls:
     - hosts:
         - auth.crownlabs.polito.it
-      secretName: keycloak-certificate-secret
+      secretName: keycloak-certificate
+
+  # ingress for console only (/auth/admin)
+  console:
+    # If `true`, an Ingress is created for console path only
+    enabled: false
+    # Ingress annotations for console ingress only
+    # Useful to set nginx.ingress.kubernetes.io/whitelist-source-range particularly
+    annotations: {}
+    rules:
+      -
+        # Ingress host
+        host: '{{ .Release.Name }}.keycloak.example.com'
+        # Paths for the host
+        paths:
+          - /auth/admin/
 
 ## Network policy configuration
 networkPolicy:
@@ -398,11 +419,11 @@ pgchecker:
   # Resource requests and limits for the pgchecker container
   resources:
     requests:
-      cpu: "10m"
-      memory: "16Mi"
+      cpu: "20m"
+      memory: "32Mi"
     limits:
-      cpu: "10m"
-      memory: "16Mi"
+      cpu: "20m"
+      memory: "32Mi"
 
 postgresql:
   # If `true`, the Postgresql dependency is enabled
